@@ -1,1 +1,484 @@
-# brickbreak
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Brick-Break</title>
+    <style>
+    	* {
+		padding: 0; margin: 0;
+		}
+    	canvas {
+		background-color: black;
+		display: block;
+		margin: 0 auto;
+		}
+
+    #startButton, #restartButton {
+      position: absolute;
+      top: 400px;
+      left: 700px;
+    }
+    </style>
+</head>
+<body>
+
+<!-- Templates Start -->
+
+  <template id="titleTemplate">
+    <div class="screen">
+      <canvas width="1200" height="550" id="canv">
+	  </canvas>
+    </div>
+	<div>
+      <button onclick="update({name:'next'})" id="startButton">Start</button>
+    </div>
+  </template>
+
+   <template id="runTemplate">
+    <div class="screen">
+      <canvas id="canvas" width="1200" height="650"></canvas>
+    </div>
+  </template>
+
+    <template id="endTemplate">
+    <div class="screen">
+      <canvas width="1200" height="550" id="canv">
+    </div>
+    <div>
+      <button onclick="update({name:'next'})" id="restartButton">Restart</button>
+    </div>
+  </template>
+
+  <div id="tempTemplate"></div>
+
+<!-- Templates End -->
+
+
+
+
+
+<script>
+
+var titleStateHandler = {
+  start() {
+    updateListeners.push(this);
+  var canvas = document.getElementById("canv");
+var ctx = canvas.getContext("2d");
+ctx.font = "30px Times New Roman";
+ctx.fillStyle = "red";
+ctx.textAlign = "center";
+ctx.fillText("Brick", canvas.width/2, canvas.height/2);
+ctx.fillStyle = "blue";
+ctx.textAlign = "center";
+ctx.fillText("Break", (canvas.width/2)+50, (canvas.height/2)+50);
+},
+eventPump(event) {
+switch(event.name) {
+  case "next":
+    state = RUN_STATE;
+    updateListeners.splice(updateListeners.indexOf(this), 1);
+    updateStateHandler();
+    break;
+}
+}
+}
+var runStateHandler = {
+  start() {
+    //Canvas
+    updateListeners.push(this);
+    this.canvas = document.getElementById("canvas");
+    this.ctx = this.canvas.getContext("2d");
+
+    //Ball
+    this.ballX = Math.floor((Math.random() * 1100) + 1);
+    this.ballY = this.canvas.height-125;
+    this.bChangeX = 2;
+    this.bChangeY = -2;
+    this.ballRadius = 7;
+    this.speed = 1;
+
+    //Paddle
+    this.paddleWidth = 115;
+    this.paddleHeight = 10;
+    this.paddleX = (this.canvas.width-this.paddleWidth)/2;
+    this.paddleY = 550;
+    this.pChangeX = 3;
+    this.paddleRight = false;
+    this.paddleLeft = false;
+
+    //Bricks
+    this.brickRowCount = 3;
+    this.brickColumns = 13;
+    this.brickWidth = 78.5;
+    this.brickHeight = 20;
+    this.brickApartLength = 10;
+    this.brickAwayFromTop = 30;
+    this.brickAwayFromLeft = 30;
+
+    //Scoring and lives
+    this.score = 0;
+    this.totalScore = 0;
+    this.lives = 3;
+    this.level = 0;
+
+    this.bricks = [];
+    for(var i = 0; i < this.brickColumns; i++) {
+      this.bricks[i] = [];
+      for(var j = 0; j < this.brickRowCount; j++) {
+        this.bricks[i][j] = {x: 0, y: 0, visible: 1};
+      }
+    }
+
+    document.addEventListener("keydown", (this.keyDownHandler).bind(this), false);
+    document.addEventListener("keyup", (this.keyUpHandler).bind(this), false);
+
+    this.draw();
+  },
+  eventPump(event) {
+    switch(event.name) {
+      case "next":
+        state = END_STATE;
+        updateListeners.splice(updateListeners.indexOf(this), 1);
+        updateStateHandler();
+        break;
+    }
+},
+draw() {
+		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		this.drawBricks();
+		this.drawBall();
+		this.drawPaddle();
+		this.drawScore();
+		this.drawlives();
+		this.collisionBricks();
+		//Checking for Left and Right Collision
+		if(this.ballX + this.bChangeX > this.canvas.width-this.ballRadius || this.ballX + this.bChangeX < this.ballRadius) {
+		this.bChangeX = -this.bChangeX;
+		}
+		//Checking for Top Collision
+		if(this.ballY + this.bChangeY < this.ballRadius) {
+		this.bChangeY = -this.bChangeY;
+		}
+		// Check for Y value slightly above the paddle and lower
+		if(this.ballY + this.bChangeY > 540) {
+			// Checking if ball is touching paddle
+			if(this.ballX > this.paddleX && this.ballX < this.paddleX + this.paddleWidth && this.ballY + this.bChangeY > 545 && this.ballY + this.bChangeY < 555) {
+        if(this.ballX + this.ballRadius < this.paddleX + this.paddleWidth - 90 && this.paddleX < canvas.width/2) {
+          this.bChangeX = -this.bChangeX;
+        }
+        else if(this.ballX + this.ballRadius > this.paddleX + this.paddleWidth - 25 && this.paddleX > canvas.width/2) {
+          this.bChangeX = -this.bChangeX;
+        }
+				this.bChangeY = -this.bChangeY;
+			}
+			//Checking if ball is touching bottom
+			else if (this.ballY + this.bChangeY > this.canvas.height-this.ballRadius) {
+        if(this.lives > 0) {
+			this.lives--;
+		}
+        if(!this.lives) {
+			this.bChangeX = 0;
+			this.bChangeY = 0;
+          update({name: "next"});
+        }
+        else {
+          this.ballX = Math.floor((Math.random() * 1100) + 1);
+          this.ballY = this.canvas.height-125;
+          this.bChangeX = 2;
+          this.bChangeY = -2;
+          this.paddleX = (this.canvas.width-this.paddleWidth)/2;
+		  this.speed = this.speed - this.speed/3;
+		  if( this.speed < 1 ) {
+			  this.speed = 1;
+		  }
+        }
+			//IMPLEMENT END STATE
+			}
+		}
+
+		if(this.paddleRight && this.paddleX < this.canvas.width-this.paddleWidth) {
+        this.paddleX += 10;
+		}
+		else if(this.paddleLeft && this.paddleX > 0) {
+        this.paddleX -= 10;
+		}
+
+		this.ballX += this.bChangeX * this.speed;
+		this.ballY += this.bChangeY * this.speed;
+    if(state == RUN_STATE) {
+    requestAnimationFrame((this.draw).bind(this));
+  }
+},
+drawBall() {
+  this.ctx.beginPath();
+  this.ctx.arc(this.ballX, this.ballY, this.ballRadius, 0, Math.PI*2);
+  this.ctx.fillStyle = "white";
+  this.ctx.fill();
+  this.ctx.closePath();
+},
+drawPaddle() {
+  this.ctx.beginPath();
+  this.ctx.rect(this.paddleX, this.paddleY, this.paddleWidth, this.paddleHeight);
+  this.ctx.fillStyle = "#808080";
+  this.ctx.fill();
+  this.ctx.closePath();
+},
+keyDownHandler(e) {
+  if(e.key == "Right" || e.key == "ArrowRight" || e.key == 'd' || e.key == 'D') {
+      this.paddleRight = true;
+  }
+  else if(e.key == "Left" || e.key == "ArrowLeft" || e.key == 'a' || e.key == 'A') {
+      this.paddleLeft = true;
+  }
+},
+keyUpHandler(e) {
+    if(e.key == "Right" || e.key == "ArrowRight" || e.key == 'd' || e.key == 'D') {
+        this.paddleRight = false;
+    }
+    else if(e.key == "Left" || e.key == "ArrowLeft" || e.key == 'a' || e.key == 'A') {
+        this.paddleLeft = false;
+    }
+},
+collisionBricks() {
+    for(var i = 0; i < this.brickColumns; i++) {
+        for(var j = 0; j < this.brickRowCount; j++) {
+            var bck = this.bricks[i][j];
+            if(bck.visible == 1) {
+              if(this.ballX > bck.x && this.ballX < bck.x + this.brickWidth && this.ballY > bck.y && this.ballY < bck.y + this.brickHeight) {
+                  this.bChangeY = -this.bChangeY;
+                  bck.visible = 0;
+                  this.score++;
+				  this.totalScore++;
+				  if (j == 0) {
+					  this.speed = this.speed + .03;
+				  }
+				  else if (j == 1) {
+					  this.speed = this.speed + .06;
+				  }
+				  else {
+					  this.speed = this.speed + .09;
+				  }
+          if(this.score == (this.brickRowCount * this.brickColumns)) {
+  					this.bChangeX = 0;
+  					this.bChangeY = 0;
+  					this.brickRowCount++;
+  					update({name: "next"}) //Change to remake levels with new rows
+					//clearBricks();
+					//drawBricks();
+					// Change to template
+                  }
+                }
+            }
+        }
+    }
+},
+drawBricks() {
+    for(var i = 0; i < this.brickColumns; i++) {
+        for(var j = 0; j < this.brickRowCount; j++) {
+			var bck3 = this.bricks[i][j];
+			if (j == 0) {
+				if(bck3.visible == 1) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.rect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.fillStyle = "cyan";
+					this.ctx.fill();
+					this.ctx.closePath();
+					}
+				}
+		else if (j == 1) {
+				if(bck3.visible == 1) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.rect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.fillStyle = "purple";
+					this.ctx.fill();
+					this.ctx.closePath();
+					}
+				}
+		else if (j == 2) {
+				if(bck3.visible == 1) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.rect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.fillStyle = "orange";
+					this.ctx.fill();
+					this.ctx.closePath();
+					}
+				}
+		else if (j == 3) {
+				if(bck3.visible == 1) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.rect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.fillStyle = "green";
+					this.ctx.fill();
+					this.ctx.closePath();
+					}
+				}
+		else if (j == 4) {
+				if(bck3.visible == 1) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.rect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.fillStyle = "yellow";
+					this.ctx.fill();
+					this.ctx.closePath();
+					}
+				}
+			}
+	}
+},
+clearBricks() {
+	for(var i = 0; i < this.brickColumns; i++) {
+        for(var j = 0; j < this.brickRowCount; j++) {
+			var bck2 = this.bricks[i][j];
+			if (j == 0) {
+					var brickX = (i*(this.brickWidth+this.brickApartLength))+this.brickAwayFromLeft;
+					var brickY = (j*(this.brickHeight+this.brickApartLength))+this.brickAwayFromTop;
+					this.bricks[i][j].x = brickX;
+					this.bricks[i][j].y = brickY;
+					this.ctx.beginPath();
+					this.ctx.clearRect(brickX, brickY, this.brickWidth, this.brickHeight);
+					this.ctx.closePath();
+					bck2.visible = 1;
+			}
+		}
+	}
+	this.ballX = Math.floor((Math.random() * 1100) + 1);
+	this.ballY = this.canvas.height-125;
+	this.bChangeX = 2;
+	this.bChangeY = -2;
+	this.paddleX = (this.canvas.width-this.paddleWidth)/2;
+	this.score = 0;
+},
+drawScore() {
+  this.ctx.font = "16px Arial";
+  this.ctx.fillStyle = "yellow";
+  this.ctx.fillText("Score: " + this.totalScore, 8, 20);
+},
+drawlives() {
+  this.ctx.font = "16px Arial";
+  this.ctx.fillStyle = "yellow";
+  this.ctx.fillText("Lives: " + this.lives, this.canvas.width - 65, 20);
+}
+}
+
+var endStateHandler = {
+  start() {
+updateListeners.push(this);
+var canvas = document.getElementById("canv");
+var ctx = canvas.getContext("2d");
+ctx.font = "30px Times New Roman";
+ctx.fillStyle = "red";
+ctx.textAlign = "center";
+ctx.fillText("Game", canvas.width/2, canvas.height/2);
+// ctx.fillStyle = "blue";
+ctx.textAlign = "center";
+ctx.fillText("Over", (canvas.width/2)+50, (canvas.height/2)+50);
+  },
+  eventPump(event) {
+    switch (event.name) {
+      case "next":
+        state = TITLE_STATE;
+        updateListeners.splice(updateListeners.indexOf(this), 1);
+        updateStateHandler();
+        break;
+    }
+  }
+}
+
+function update(event) {
+  for (let i = 0; i < updateListeners.length; i++) {
+    updateListeners[i].eventPump(event);
+  }
+}
+
+//A variable that has my state
+   //JS is dynamcially typed
+   var state;
+   var stateHandler;
+   //A set of states we can be in
+   var TITLE_STATE = 1;
+   var LOAD_STATE = 2;
+   var RUN_STATE = 3;
+   var END_STATE = 4;
+   //Set our intital state
+   state = TITLE_STATE;
+
+  var updateListeners = [];
+  updateStateHandler();
+
+	//Templates Variables >>>>>> WIP
+	// var titleTemplate, runTemplate, endTemplate;
+  //   var tempTemplate;
+
+
+
+
+
+
+
+	    function updateView() {
+      //Get initial values as needed
+      if (!titleTemplate)
+        titleTemplate = document.getElementById("titleTemplate");
+      if (!runTemplate)
+        runTemplate = document.getElementById("runTemplate");
+      if (!endTemplate)
+        endTemplate = document.getElementById("endTemplate");
+	  if (!tempTemplate)
+        tempTemplate = document.getElementById("tempTemplate");
+
+      var clone;
+      if (state == TITLE_STATE) {
+        clone = titleTemplate.content.cloneNode(true);
+      }
+      else if (state == RUN_STATE) {
+        clone = runTemplate.content.cloneNode(true);
+      }
+	  else if (state == END_STATE) {
+        clone = endTemplate.content.cloneNode(true);
+      }
+	  else {
+        return console.log("ERROR: Couldn't match state " + state);
+      }
+
+      tempTemplate.innerHTML = "";
+      tempTemplate.appendChild(clone);
+    }
+
+
+
+
+    function updateStateHandler() {
+      if (state == TITLE_STATE) {
+        stateHandler = titleStateHandler;
+      } else if (state == RUN_STATE) {
+        stateHandler = runStateHandler;
+      } else if (state == END_STATE) {
+        stateHandler = endStateHandler;
+      }
+
+
+      updateView();
+      stateHandler.start();
+    }
+</script>
+
+</body>
+</html>
